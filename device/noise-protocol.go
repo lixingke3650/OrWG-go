@@ -32,26 +32,26 @@ const (
 )
 
 const (
-	MessageInitiationType  = 1
-	MessageResponseType    = 2
-	MessageCookieReplyType = 3
-	MessageTransportType   = 4
+	MessageInitiationType  = 10000
+	MessageResponseType    = 20000
+	MessageCookieReplyType = 30000
+	MessageTransportType   = 40000
 )
 
 const (
-	MessageInitiationSize      = 148                                           // size of handshake initiation message
-	MessageResponseSize        = 92                                            // size of response message
-	MessageCookieReplySize     = 64                                            // size of cookie reply message
-	MessageTransportHeaderSize = 16                                            // size of data preceding content in transport message
+	MessageInitiationSize      = 152                                           // size of handshake initiation message
+	MessageResponseSize        = 96                                            // size of response message
+	MessageCookieReplySize     = 68                                            // size of cookie reply message
+	MessageTransportHeaderSize = 20                                            // size of data preceding content in transport message
 	MessageTransportSize       = MessageTransportHeaderSize + poly1305.TagSize // size of empty transport
 	MessageKeepaliveSize       = MessageTransportSize                          // size of keepalive
 	MessageHandshakeSize       = MessageInitiationSize                         // size of largest handshake related message
 )
 
 const (
-	MessageTransportOffsetReceiver = 4
-	MessageTransportOffsetCounter  = 8
-	MessageTransportOffsetContent  = 16
+	MessageTransportOffsetReceiver = 8
+	MessageTransportOffsetCounter  = 12
+	MessageTransportOffsetContent  = 20
 )
 
 /* Type is an 8-bit field, followed by 3 nul bytes,
@@ -61,6 +61,7 @@ const (
  */
 
 type MessageInitiation struct {
+	HeaderRandom uint32
 	Type      uint32
 	Sender    uint32
 	Ephemeral NoisePublicKey
@@ -71,6 +72,7 @@ type MessageInitiation struct {
 }
 
 type MessageResponse struct {
+	HeaderRandom uint32
 	Type      uint32
 	Sender    uint32
 	Receiver  uint32
@@ -81,6 +83,7 @@ type MessageResponse struct {
 }
 
 type MessageTransport struct {
+	HeaderRandom uint32
 	Type     uint32
 	Receiver uint32
 	Counter  uint64
@@ -88,6 +91,7 @@ type MessageTransport struct {
 }
 
 type MessageCookieReply struct {
+	HeaderRandom uint32
 	Type     uint32
 	Receiver uint32
 	Nonce    [chacha20poly1305.NonceSizeX]byte
@@ -187,8 +191,11 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 
 	handshake.mixHash(handshake.remoteStatic[:])
 
+	headerrandom := GetRandomForHeader()
+
 	msg := MessageInitiation{
-		Type:      MessageInitiationType,
+		HeaderRandom: headerrandom,
+		Type:      MessageInitiationType ^ headerrandom,
 		Ephemeral: handshake.localEphemeral.publicKey(),
 		Sender:    handshake.localIndex,
 	}
@@ -238,7 +245,7 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 		chainKey [blake2s.Size]byte
 	)
 
-	if msg.Type != MessageInitiationType {
+	if (msg.Type ^ msg.HeaderRandom) != MessageInitiationType {
 		return nil
 	}
 
@@ -351,7 +358,8 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 	}
 
 	var msg MessageResponse
-	msg.Type = MessageResponseType
+	msg.HeaderRandom = GetRandomForHeader()
+	msg.Type = MessageResponseType ^ msg.HeaderRandom
 	msg.Sender = handshake.localIndex
 	msg.Receiver = handshake.remoteIndex
 
@@ -399,7 +407,7 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 }
 
 func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
-	if msg.Type != MessageResponseType {
+	if (msg.Type ^ msg.HeaderRandom) != MessageResponseType {
 		return nil
 	}
 

@@ -20,6 +20,7 @@ import (
 )
 
 type QueueHandshakeElement struct {
+	headerRandom uint32
 	msgType  uint32
 	packet   []byte
 	endpoint Endpoint
@@ -136,7 +137,9 @@ func (device *Device) RoutineReceiveIncoming(IP int, bind Bind) {
 		// check size of packet
 
 		packet := buffer[:size]
-		msgType := binary.LittleEndian.Uint32(packet[:4])
+		headerRandom := binary.LittleEndian.Uint32(packet[0:4])
+		msgTypeRaw := binary.LittleEndian.Uint32(packet[4:8])
+		msgType:= msgTypeRaw ^ headerRandom
 
 		var okay bool
 
@@ -210,7 +213,8 @@ func (device *Device) RoutineReceiveIncoming(IP int, bind Bind) {
 			if (device.addToHandshakeQueue(
 				device.queue.handshake,
 				QueueHandshakeElement{
-					msgType:  msgType,
+					headerRandom: headerRandom,
+					msgType:  msgTypeRaw,
 					buffer:   buffer,
 					packet:   packet,
 					endpoint: endpoint,
@@ -327,7 +331,9 @@ func (device *Device) RoutineHandshake() {
 
 		// handle cookie fields and ratelimiting
 
-		switch elem.msgType {
+		elemMsgType := elem.msgType ^ elem.headerRandom
+
+		switch elemMsgType {
 
 		case MessageCookieReplyType:
 
@@ -394,7 +400,7 @@ func (device *Device) RoutineHandshake() {
 
 		// handle handshake initiation/response content
 
-		switch elem.msgType {
+		switch elemMsgType {
 		case MessageInitiationType:
 
 			// unmarshal

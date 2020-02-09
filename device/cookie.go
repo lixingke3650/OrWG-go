@@ -154,7 +154,8 @@ func (st *CookieChecker) CreateReply(
 	smac1 := smac2 - blake2s.Size128
 
 	reply := new(MessageCookieReply)
-	reply.Type = MessageCookieReplyType
+	reply.HeaderRandom = GetRandomForHeader()
+	reply.Type = MessageCookieReplyType ^ reply.HeaderRandom
 	reply.Receiver = recv
 
 	_, err := rand.Read(reply.Nonce[:])

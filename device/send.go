@@ -209,7 +209,7 @@ func (device *Device) SendHandshakeCookie(initiatingElem *QueueHandshakeElement)
 
 	device.log.Debug.Println("Sending cookie response for denied handshake message for", initiatingElem.endpoint.DstToString())
 
-	sender := binary.LittleEndian.Uint32(initiatingElem.packet[4:8])
+	sender := binary.LittleEndian.Uint32(initiatingElem.packet[8:12])
 	reply, err := device.cookieChecker.CreateReply(initiatingElem.packet, sender, initiatingElem.endpoint.DstToBytes())
 	if err != nil {
 		device.log.Error.Println("Failed to create cookie reply:", err)
@@ -504,11 +504,15 @@ func (device *Device) RoutineEncryption() {
 
 			header := elem.buffer[:MessageTransportHeaderSize]
 
-			fieldType := header[0:4]
-			fieldReceiver := header[4:8]
-			fieldNonce := header[8:16]
+			filedRandomHeader := header[0:4]
+			fieldType := header[4:8]
+			fieldReceiver := header[8:12]
+			fieldNonce := header[12:20]
 
-			binary.LittleEndian.PutUint32(fieldType, MessageTransportType)
+			headerrandom := GetRandomForHeader()
+
+			binary.LittleEndian.PutUint32(filedRandomHeader, headerrandom)
+			binary.LittleEndian.PutUint32(fieldType, MessageTransportType ^ headerrandom)
 			binary.LittleEndian.PutUint32(fieldReceiver, elem.keypair.remoteIndex)
 			binary.LittleEndian.PutUint64(fieldNonce, elem.nonce)
 
