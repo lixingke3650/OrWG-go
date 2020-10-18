@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2019 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2020 WireGuard LLC. All Rights Reserved.
  */
 
 package replay
@@ -14,22 +14,22 @@ import (
  *
  */
 
-const RejectAfterMessages = (1 << 64) - (1 << 4) - 1
+const RejectAfterMessages = 1<<64 - 1<<13 - 1
 
 func TestReplay(t *testing.T) {
-	var filter ReplayFilter
+	var filter Filter
 
-	T_LIM := CounterWindowSize + 1
+	const T_LIM = windowSize + 1
 
 	testNumber := 0
-	T := func(n uint64, v bool) {
+	T := func(n uint64, expected bool) {
 		testNumber++
-		if filter.ValidateCounter(n, RejectAfterMessages) != v {
-			t.Fatal("Test", testNumber, "failed", n, v)
+		if filter.ValidateCounter(n, RejectAfterMessages) != expected {
+			t.Fatal("Test", testNumber, "failed", n, expected)
 		}
 	}
 
-	filter.Init()
+	filter.Reset()
 
 	T(0, true)                      /*  1 */
 	T(1, true)                      /*  2 */
@@ -67,53 +67,53 @@ func TestReplay(t *testing.T) {
 	T(0, false)                     /* 34 */
 
 	t.Log("Bulk test 1")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := uint64(1); i <= CounterWindowSize; i++ {
+	for i := uint64(1); i <= windowSize; i++ {
 		T(i, true)
 	}
 	T(0, true)
 	T(0, false)
 
 	t.Log("Bulk test 2")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := uint64(2); i <= CounterWindowSize+1; i++ {
+	for i := uint64(2); i <= windowSize+1; i++ {
 		T(i, true)
 	}
 	T(1, true)
 	T(0, false)
 
 	t.Log("Bulk test 3")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := CounterWindowSize + 1; i > 0; i-- {
+	for i := uint64(windowSize + 1); i > 0; i-- {
 		T(i, true)
 	}
 
 	t.Log("Bulk test 4")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := CounterWindowSize + 2; i > 1; i-- {
+	for i := uint64(windowSize + 2); i > 1; i-- {
 		T(i, true)
 	}
 	T(0, false)
 
 	t.Log("Bulk test 5")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := CounterWindowSize; i > 0; i-- {
+	for i := uint64(windowSize); i > 0; i-- {
 		T(i, true)
 	}
-	T(CounterWindowSize+1, true)
+	T(windowSize+1, true)
 	T(0, false)
 
 	t.Log("Bulk test 6")
-	filter.Init()
+	filter.Reset()
 	testNumber = 0
-	for i := CounterWindowSize; i > 0; i-- {
+	for i := uint64(windowSize); i > 0; i-- {
 		T(i, true)
 	}
 	T(0, true)
-	T(CounterWindowSize+1, true)
+	T(windowSize+1, true)
 }
