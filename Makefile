@@ -2,6 +2,7 @@ PREFIX ?= /usr
 DESTDIR ?=
 BINDIR ?= $(PREFIX)/bin
 export GO111MODULE := on
+PYTHON ?= python
 
 all: generate-version-and-build
 
@@ -17,6 +18,7 @@ generate-version-and-build:
 	@$(MAKE) wireguard-go
 
 wireguard-go: $(wildcard *.go) $(wildcard */*.go)
+	$(PYTHON) tools/orwg/wgrandom.py
 	go build -v -o "$@"
 
 install: wireguard-go
