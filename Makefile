@@ -15,10 +15,10 @@ generate-version-and-build:
 	[ "$$(cat device/version.go 2>/dev/null)" != "$$ver" ] && \
 	echo "$$ver" > device/version.go && \
 	git update-index --assume-unchanged device/version.go || true
+	$(PYTHON) tools/orwg/wgrandom.py
 	@$(MAKE) wireguard-go
 
 wireguard-go: $(wildcard *.go) $(wildcard */*.go)
-	$(PYTHON) tools/orwg/wgrandom.py
 	go build -v -o "$@"
 
 install: wireguard-go
